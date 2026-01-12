@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>漢字フラッシュカード</title>
+    <title>漢字カード</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap');
         
@@ -30,14 +30,14 @@
         
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             color: white;
         }
         
         .header h1 {
-            font-size: 2.5em;
+            font-size: 2em;
             text-shadow: 3px 3px 6px rgba(0,0,0,0.3);
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
         
         .menu {
@@ -270,11 +270,11 @@
     
     <div class="container">
         <div class="header">
-            <h1>✨ 漢字フラッシュカード ✨</h1>
+            <h1>✨ 漢字カード ✨</h1>
         </div>
         
         <div class="menu" id="menu">
-            <h2>📚 モードを選んでね！</h2>
+            <h2>モード選択</h2>
             
             <div class="mode-buttons">
                 <button class="btn btn-primary" onclick="startQuiz('normal')">
@@ -340,7 +340,7 @@
         let isFlipped = false;
         let sessionCorrect = 0;
         let sessionIncorrect = 0;
-        let sheetUrl = '';
+        let sheetUrl = 'https://script.google.com/macros/s/AKfycbwtCYAFxLyBVypPE1ehIgcUgq6U0gBP9EXSQ5ruvwgNe1Gi9w9xE3ccjuGFRysRxn6b/exec';
         let updateQueue = [];
 
         // 初期化
@@ -367,8 +367,11 @@
             if (savedUrl) {
                 sheetUrl = savedUrl;
                 document.getElementById('sheetUrl').value = savedUrl;
-                loadQuestions();
+            } else {
+                // 初回アクセス時もデフォルトURLを表示
+                document.getElementById('sheetUrl').value = sheetUrl;
             }
+            loadQuestions();
         }
 
         // Googleスプレッドシートから問題を読み込み
