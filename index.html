@@ -278,7 +278,7 @@
             
             <div class="mode-buttons">
                 <button class="btn btn-primary" onclick="startQuiz('normal')">
-                    🌟 ふつうモード（20問）
+                    🌟 ふつうモード（最大40問）
                 </button>
                 <button class="btn btn-review1" onclick="startQuiz('review80')">
                     💪 忘れないぞ復習モード（正答率80%以下）
@@ -418,8 +418,8 @@
                 return;
             }
             
-            // 20問まで
-            currentQuestions = filtered.slice(0, 20);
+            // 40問まで（問題数が40未満なら全問出題）
+            currentQuestions = filtered.slice(0, Math.min(40, filtered.length));
             
             // ランダムモード
             const orderMode = document.getElementById('orderMode').value;
