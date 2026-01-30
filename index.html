@@ -283,8 +283,8 @@
                 <button class="btn btn-review1" onclick="startQuiz('review80')">
                     💪 忘れないぞ復習モード（正答率80%以下）
                 </button>
-                <button class="btn btn-review2" onclick="startQuiz('review50')">
-                    🔥 覚えるぞ復習モード（正答率50%以下）
+                <button class="btn btn-review2" onclick="startQuiz('review100')">
+                    🔥 覚えるぞ復習モード（1回でも間違えたもの）
                 </button>
             </div>
             
@@ -409,10 +409,9 @@
                     const rate = q.totalCount > 0 ? (q.correctCount / q.totalCount) * 100 : 0;
                     return rate <= 80;
                 });
-            } else if (mode === 'review50') {
+            } else if (mode === 'review100') {
                 filtered = allQuestions.filter(q => {
-                    const rate = q.totalCount > 0 ? (q.correctCount / q.totalCount) * 100 : 0;
-                    return rate <= 50;
+                    return q.totalCount > q.correctCount;
                 });
             }
             
