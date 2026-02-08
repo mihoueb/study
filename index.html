@@ -85,6 +85,11 @@
             color: white;
         }
         
+        .btn-list {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        
         .btn:hover {
             transform: translateY(-3px);
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
@@ -263,6 +268,151 @@
             display: none;
             font-weight: bold;
         }
+        
+        /* リスト表示用スタイル */
+        .list-container {
+            display: none;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+        
+        .list-header h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin: 0;
+        }
+        
+        .list-back-btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: bold;
+        }
+        
+        .list-back-btn:hover {
+            background: #5568d3;
+        }
+        
+        .question-list {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+        }
+        
+        .question-item {
+            display: table-row;
+            border-bottom: 1px solid #e0e7ff;
+            page-break-inside: avoid;
+        }
+        
+        .question-item:last-child {
+            border-bottom: none;
+        }
+        
+        .question-item-number {
+            display: table-cell;
+            padding: 12px 15px;
+            color: #999;
+            font-weight: bold;
+            text-align: center;
+            width: 40px;
+            background: #f8f9ff;
+        }
+        
+        .question-item-text {
+            display: table-cell;
+            padding: 12px 15px;
+        }
+        
+        .question-item-content {
+            font-size: 1em;
+            color: #333;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .question-item-label {
+            font-size: 0.8em;
+            color: #999;
+            margin-bottom: 3px;
+        }
+        
+        .answer-item-content {
+            font-size: 1em;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .empty-message {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 1.2em;
+        }
+        
+        /* 印刷用スタイル */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            .list-container {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 10px;
+            }
+            
+            .list-header {
+                padding: 0;
+                margin-bottom: 15px;
+            }
+            
+            .list-back-btn {
+                display: none;
+            }
+            
+            .list-header h2 {
+                font-size: 1.5em;
+            }
+            
+            .question-list {
+                font-size: 0.9em;
+            }
+            
+            .question-item-number {
+                background: white;
+                border: 1px solid #ddd;
+            }
+            
+            .question-item-text {
+                border: 1px solid #ddd;
+            }
+            
+            .question-item {
+                page-break-inside: avoid;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -285,6 +435,9 @@
                 </button>
                 <button class="btn btn-review2" onclick="startQuiz('review100')">
                     🔥 覚えるぞ復習モード（1回でも間違えたもの）
+                </button>
+                <button class="btn btn-list" onclick="showListView()">
+                    📊 弱点確認
                 </button>
             </div>
             
@@ -331,7 +484,20 @@
             </div>
             <button class="btn btn-primary" onclick="backToMenu()">メニューに戻る</button>
         </div>
+        
+        <!-- 問題一覧ビュー -->
+        <div class="list-container" id="listContainer">
+            <div class="list-header">
+                <h2>📊 弱点確認</h2>
+                <button class="list-back-btn" onclick="backToMenu()">← メニュー</button>
+            </div>
+            <div class="question-list" id="questionList">
+                <div class="empty-message">読み込み中...</div>
+            </div>
+        </div>
     </div>
+    
+
 
     <script>
         let allQuestions = [];
@@ -368,7 +534,6 @@
                 sheetUrl = savedUrl;
                 document.getElementById('sheetUrl').value = savedUrl;
             } else {
-                // 初回アクセス時もデフォルトURLを表示
                 document.getElementById('sheetUrl').value = sheetUrl;
             }
             loadQuestions();
@@ -389,6 +554,50 @@
                 alert('問題の読み込みに失敗しました。URLを確認してください。');
                 console.error(error);
             }
+        }
+
+        // 問題一覧ビューを表示
+        function showListView() {
+            if (allQuestions.length === 0) {
+                alert('先にGoogleスプレッドシートのURLを設定してください！');
+                return;
+            }
+
+            // 正答率が低い順にソート
+            const sorted = [...allQuestions].sort((a, b) => {
+                const rateA = a.totalCount > 0 ? (a.correctCount / a.totalCount) * 100 : 0;
+                const rateB = b.totalCount > 0 ? (b.correctCount / b.totalCount) * 100 : 0;
+                return rateA - rateB;
+            });
+
+            const listHTML = sorted.map((q, index) => {
+                const highlighted = q.question.replace(/【([^】]+)】/g, '<span class="highlight">【$1】</span>');
+                
+                return `
+                    <tr class="question-item">
+                        <td class="question-item-number">${index + 1}</td>
+                        <td class="question-item-text">
+                            <div class="question-item-content">${highlighted}</div>
+                        </td>
+                        <td class="question-item-text">
+                            <div class="answer-item-content">${q.answer}</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            const tableHTML = `
+                <table class="question-list">
+                    <thead style="display: none;"></thead>
+                    <tbody>
+                        ${listHTML}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('questionList').innerHTML = tableHTML || '<div class="empty-message">問題がありません</div>';
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('listContainer').style.display = 'block';
         }
 
         // クイズ開始
@@ -542,6 +751,8 @@
         // メニューに戻る
         function backToMenu() {
             document.getElementById('result').style.display = 'none';
+            document.getElementById('listContainer').style.display = 'none';
+            document.getElementById('cardContainer').style.display = 'none';
             document.getElementById('menu').style.display = 'block';
             loadQuestions(); // 最新データを再読み込み
         }
