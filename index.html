@@ -563,12 +563,25 @@
                 return;
             }
 
+            // 正答率70%以下のみをフィルタリング
+            const filtered = allQuestions.filter(q => {
+                const rate = q.totalCount > 0 ? (q.correctCount / q.totalCount) * 100 : 0;
+                return rate < 70;
+            });
+
             // 正答率が低い順にソート
-            const sorted = [...allQuestions].sort((a, b) => {
+            const sorted = filtered.sort((a, b) => {
                 const rateA = a.totalCount > 0 ? (a.correctCount / a.totalCount) * 100 : 0;
                 const rateB = b.totalCount > 0 ? (b.correctCount / b.totalCount) * 100 : 0;
                 return rateA - rateB;
             });
+
+            if (sorted.length === 0) {
+                document.getElementById('questionList').innerHTML = '<div class="empty-message">70%以下の弱点がありません。素晴らしい！✨</div>';
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('listContainer').style.display = 'block';
+                return;
+            }
 
             const listHTML = sorted.map((q, index) => {
                 const highlighted = q.question.replace(/【([^】]+)】/g, '<span class="highlight">【$1】</span>');
@@ -595,7 +608,7 @@
                 </table>
             `;
 
-            document.getElementById('questionList').innerHTML = tableHTML || '<div class="empty-message">問題がありません</div>';
+            document.getElementById('questionList').innerHTML = tableHTML;
             document.getElementById('menu').style.display = 'none';
             document.getElementById('listContainer').style.display = 'block';
         }
@@ -759,3 +772,4 @@
     </script>
 </body>
 </html>
+
