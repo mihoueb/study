@@ -306,6 +306,64 @@
         .list-back-btn:hover {
             background: #5568d3;
         }
+
+        /* 回数入力モーダル */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .modal-box h3 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        .modal-box p {
+            color: #666;
+            font-size: 1em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-box input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-family: inherit;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn-cancel {
+            background: #ccc;
+            color: white;
+            padding: 15px;
+            font-size: 1.1em;
+        }
         
         .question-list {
             display: table;
@@ -436,7 +494,7 @@
                 <button class="btn btn-review2" onclick="startQuiz('review100')">
                     🔥 覚えるぞ復習モード（1回でも間違えたもの）
                 </button>
-                <button class="btn btn-list" onclick="showListView()">
+                <button class="btn btn-list" onclick="showRoundModal()">
                     📊 弱点確認
                 </button>
             </div>
@@ -488,16 +546,28 @@
         <!-- 問題一覧ビュー -->
         <div class="list-container" id="listContainer">
             <div class="list-header">
-                <h2>📊 弱点確認</h2>
+                <h2 id="listTitle">📊 弱点確認</h2>
                 <button class="list-back-btn" onclick="backToMenu()">← メニュー</button>
             </div>
-            <div class="question-list" id="questionList">
+            <div id="questionList">
                 <div class="empty-message">読み込み中...</div>
             </div>
         </div>
     </div>
-    
 
+    <!-- 回数入力モーダル -->
+    <div class="modal-overlay" id="roundModal" style="display:none;">
+        <div class="modal-box">
+            <h3>📊 弱点確認</h3>
+            <p>表示したい回をカンマ区切りで入力してください。<br>
+            例：<strong>3</strong>（第3回のみ）　<strong>1,2,3</strong>（第1・2・3回）</p>
+            <input type="text" id="roundInput" placeholder="例: 1,2,3" inputmode="numeric">
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeRoundModal()">キャンセル</button>
+                <button class="btn btn-list" onclick="confirmRoundSelection()">表示する</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         let allQuestions = [];
@@ -541,9 +611,7 @@
 
         // Googleスプレッドシートから問題を読み込み
         async function loadQuestions() {
-            if (!sheetUrl) {
-                return;
-            }
+            if (!sheetUrl) return;
             
             try {
                 const response = await fetch(sheetUrl);
@@ -556,28 +624,84 @@
             }
         }
 
-        // 問題一覧ビューを表示
-        function showListView() {
+        // 回数入力モーダルを開く
+        function showRoundModal() {
             if (allQuestions.length === 0) {
                 alert('先にGoogleスプレッドシートのURLを設定してください！');
                 return;
             }
+            document.getElementById('roundInput').value = '';
+            document.getElementById('roundModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('roundInput').focus(), 100);
+        }
 
-            // 正答率70%以下のみをフィルタリング
-            const filtered = allQuestions.filter(q => {
+        // モーダルを閉じる
+        function closeRoundModal() {
+            document.getElementById('roundModal').style.display = 'none';
+        }
+
+        // Enterキーでも確定できるように
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && document.getElementById('roundModal').style.display === 'flex') {
+                confirmRoundSelection();
+            }
+        });
+
+        // 回数の入力を確定して一覧表示
+        function confirmRoundSelection() {
+            const input = document.getElementById('roundInput').value.trim();
+
+            if (!input) {
+                alert('回数を入力してください');
+                return;
+            }
+
+            // カンマ区切りで回数リストを作成（全角カンマも対応）
+            const parts = input.split(/[,，、]/).map(s => s.trim()).filter(s => s !== '');
+            const selectedRounds = parts.map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+
+            if (selectedRounds.length === 0) {
+                alert('正しい数字を入力してください（例：1,2,3）');
+                return;
+            }
+
+            closeRoundModal();
+            showListView(selectedRounds);
+        }
+
+        // 問題一覧ビューを表示
+        function showListView(selectedRounds) {
+            // 指定された回の問題のみ絞り込み
+            const roundFiltered = allQuestions.filter(q => selectedRounds.includes(Number(q.round)));
+
+            if (roundFiltered.length === 0) {
+                document.getElementById('questionList').innerHTML =
+                    '<div class="empty-message">指定した回の問題が見つかりませんでした。</div>';
+                document.getElementById('menu').style.display = 'none';
+                document.getElementById('listContainer').style.display = 'block';
+                return;
+            }
+
+            // 正答率50%以下のみをフィルタリング
+            const filtered = roundFiltered.filter(q => {
                 const rate = q.totalCount > 0 ? (q.correctCount / q.totalCount) * 100 : 0;
-                return rate < 70;
+                return rate <= 50;
             });
 
-            // 正答率が低い順にソート
+            // 正答率が低い順にソート（未回答は0%として扱う）
             const sorted = filtered.sort((a, b) => {
                 const rateA = a.totalCount > 0 ? (a.correctCount / a.totalCount) * 100 : 0;
                 const rateB = b.totalCount > 0 ? (b.correctCount / b.totalCount) * 100 : 0;
                 return rateA - rateB;
             });
 
+            // タイトルに選択した回を表示
+            const roundLabel = selectedRounds.sort((a,b)=>a-b).map(r => `第${r}回`).join('・');
+            document.getElementById('listTitle').textContent = `📊 弱点確認（${roundLabel}）`;
+
             if (sorted.length === 0) {
-                document.getElementById('questionList').innerHTML = '<div class="empty-message">70%以下の弱点がありません。素晴らしい！✨</div>';
+                document.getElementById('questionList').innerHTML =
+                    `<div class="empty-message">${roundLabel}に正答率50%以下の問題はありません！✨</div>`;
                 document.getElementById('menu').style.display = 'none';
                 document.getElementById('listContainer').style.display = 'block';
                 return;
@@ -585,12 +709,14 @@
 
             const listHTML = sorted.map((q, index) => {
                 const highlighted = q.question.replace(/【([^】]+)】/g, '<span class="highlight">【$1】</span>');
+                const rate = q.totalCount > 0 ? Math.round((q.correctCount / q.totalCount) * 100) : 0;
                 
                 return `
                     <tr class="question-item">
                         <td class="question-item-number">${index + 1}</td>
                         <td class="question-item-text">
                             <div class="question-item-content">${highlighted}</div>
+                            <div class="question-item-label">第${q.round}回　正答率 ${rate}%（${q.correctCount}/${q.totalCount}）</div>
                         </td>
                         <td class="question-item-text">
                             <div class="answer-item-content">${q.answer}</div>
@@ -600,11 +726,8 @@
             }).join('');
 
             const tableHTML = `
-                <table class="question-list">
-                    <thead style="display: none;"></thead>
-                    <tbody>
-                        ${listHTML}
-                    </tbody>
+                <table class="question-list" style="width:100%; border-collapse:collapse;">
+                    <tbody>${listHTML}</tbody>
                 </table>
             `;
 
@@ -624,7 +747,6 @@
             sessionIncorrect = 0;
             updateQueue = [];
             
-            // モードに応じて問題を絞り込み
             let filtered = allQuestions;
             if (mode === 'review80') {
                 filtered = allQuestions.filter(q => {
@@ -642,10 +764,8 @@
                 return;
             }
             
-            // 40問まで（問題数が40未満なら全問出題）
             currentQuestions = filtered.slice(0, Math.min(40, filtered.length));
             
-            // ランダムモード
             const orderMode = document.getElementById('orderMode').value;
             if (orderMode === 'random') {
                 currentQuestions = shuffleArray(currentQuestions);
@@ -702,7 +822,6 @@
         function answerQuestion(correct) {
             const q = currentQuestions[currentIndex];
             
-            // 統計を更新
             q.totalCount++;
             if (correct) {
                 q.correctCount++;
@@ -711,7 +830,6 @@
                 sessionIncorrect++;
             }
             
-            // 更新キューに追加
             updateQueue.push({
                 rowIndex: q.rowIndex,
                 correctCount: q.correctCount,
@@ -734,9 +852,7 @@
             try {
                 const response = await fetch(sheetUrl, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updateQueue),
                     mode: 'no-cors'
                 });
@@ -767,9 +883,8 @@
             document.getElementById('listContainer').style.display = 'none';
             document.getElementById('cardContainer').style.display = 'none';
             document.getElementById('menu').style.display = 'block';
-            loadQuestions(); // 最新データを再読み込み
+            loadQuestions();
         }
     </script>
 </body>
 </html>
-
