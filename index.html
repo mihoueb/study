@@ -90,6 +90,11 @@ font-weight: 600;
             background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
             color: white;
         }
+
+        .btn-round-all {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
         
         .btn:hover {
             transform: translateY(-3px);
@@ -495,6 +500,9 @@ font-weight: 600;
                 <button class="btn btn-review2" onclick="startQuiz('review100')">
                     🔥 覚えるぞ復習モード（1回でも間違えたもの）
                 </button>
+                <button class="btn btn-round-all" onclick="showRoundAllModal()">
+                    📚 指定回を全部
+                </button>
                 <button class="btn btn-list" onclick="showRoundModal()">
                     📊 弱点確認
                 </button>
@@ -556,7 +564,7 @@ font-weight: 600;
         </div>
     </div>
 
-    <!-- 回数入力モーダル -->
+    <!-- 弱点確認：回数入力モーダル -->
     <div class="modal-overlay" id="roundModal" style="display:none;">
         <div class="modal-box">
             <h3>📊 弱点確認</h3>
@@ -566,6 +574,20 @@ font-weight: 600;
             <div class="modal-buttons">
                 <button class="btn btn-cancel" onclick="closeRoundModal()">キャンセル</button>
                 <button class="btn btn-list" onclick="confirmRoundSelection()">表示する</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 指定回を全部：回数入力モーダル -->
+    <div class="modal-overlay" id="roundAllModal" style="display:none;">
+        <div class="modal-box">
+            <h3>📚 指定回を全部</h3>
+            <p>出題したい回をカンマ区切りで入力してください。<br>
+            例：<strong>3</strong>（第3回のみ）　<strong>1,2,3</strong>（第1・2・3回）</p>
+            <input type="text" id="roundAllInput" placeholder="例: 1,2,3" inputmode="numeric">
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" onclick="closeRoundAllModal()">キャンセル</button>
+                <button class="btn btn-round-all" onclick="confirmRoundAllSelection()">出題する</button>
             </div>
         </div>
     </div>
@@ -625,7 +647,7 @@ font-weight: 600;
             }
         }
 
-        // 回数入力モーダルを開く
+        // 弱点確認モーダルを開く
         function showRoundModal() {
             if (allQuestions.length === 0) {
                 alert('先にGoogleスプレッドシートのURLを設定してください！');
@@ -636,19 +658,39 @@ font-weight: 600;
             setTimeout(() => document.getElementById('roundInput').focus(), 100);
         }
 
-        // モーダルを閉じる
+        // 弱点確認モーダルを閉じる
         function closeRoundModal() {
             document.getElementById('roundModal').style.display = 'none';
         }
 
-        // Enterキーでも確定できるように
+        // 指定回を全部モーダルを開く
+        function showRoundAllModal() {
+            if (allQuestions.length === 0) {
+                alert('先にGoogleスプレッドシートのURLを設定してください！');
+                return;
+            }
+            document.getElementById('roundAllInput').value = '';
+            document.getElementById('roundAllModal').style.display = 'flex';
+            setTimeout(() => document.getElementById('roundAllInput').focus(), 100);
+        }
+
+        // 指定回を全部モーダルを閉じる
+        function closeRoundAllModal() {
+            document.getElementById('roundAllModal').style.display = 'none';
+        }
+
+        // Enterキー対応
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && document.getElementById('roundModal').style.display === 'flex') {
-                confirmRoundSelection();
+            if (e.key === 'Enter') {
+                if (document.getElementById('roundModal').style.display === 'flex') {
+                    confirmRoundSelection();
+                } else if (document.getElementById('roundAllModal').style.display === 'flex') {
+                    confirmRoundAllSelection();
+                }
             }
         });
 
-        // 回数の入力を確定して一覧表示
+        // 弱点確認：回数の入力を確定して一覧表示
         function confirmRoundSelection() {
             const input = document.getElementById('roundInput').value.trim();
 
@@ -657,7 +699,6 @@ font-weight: 600;
                 return;
             }
 
-            // カンマ区切りで回数リストを作成（全角カンマも対応）
             const parts = input.split(/[,，、]/).map(s => s.trim()).filter(s => s !== '');
             const selectedRounds = parts.map(s => parseInt(s, 10)).filter(n => !isNaN(n));
 
@@ -670,9 +711,55 @@ font-weight: 600;
             showListView(selectedRounds);
         }
 
+        // 指定回を全部：回数の入力を確定してクイズ開始
+        function confirmRoundAllSelection() {
+            const input = document.getElementById('roundAllInput').value.trim();
+
+            if (!input) {
+                alert('回数を入力してください');
+                return;
+            }
+
+            const parts = input.split(/[,，、]/).map(s => s.trim()).filter(s => s !== '');
+            const selectedRounds = parts.map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+
+            if (selectedRounds.length === 0) {
+                alert('正しい数字を入力してください（例：1,2,3）');
+                return;
+            }
+
+            closeRoundAllModal();
+            startRoundAllQuiz(selectedRounds);
+        }
+
+        // 指定回を全部出題
+        function startRoundAllQuiz(selectedRounds) {
+            const filtered = allQuestions.filter(q => selectedRounds.includes(Number(q.round)));
+
+            if (filtered.length === 0) {
+                alert('指定した回の問題が見つかりませんでした。');
+                return;
+            }
+
+            sessionCorrect = 0;
+            sessionIncorrect = 0;
+            updateQueue = [];
+
+            currentQuestions = [...filtered];
+
+            const orderMode = document.getElementById('orderMode').value;
+            if (orderMode === 'random') {
+                currentQuestions = shuffleArray(currentQuestions);
+            }
+
+            currentIndex = 0;
+            document.getElementById('menu').style.display = 'none';
+            document.getElementById('cardContainer').style.display = 'block';
+            showQuestion();
+        }
+
         // 問題一覧ビューを表示
         function showListView(selectedRounds) {
-            // 指定された回の問題のみ絞り込み
             const roundFiltered = allQuestions.filter(q => selectedRounds.includes(Number(q.round)));
 
             if (roundFiltered.length === 0) {
@@ -683,20 +770,17 @@ font-weight: 600;
                 return;
             }
 
-            // 正答率50%以下のみをフィルタリング
             const filtered = roundFiltered.filter(q => {
                 const rate = q.totalCount > 0 ? (q.correctCount / q.totalCount) * 100 : 0;
                 return rate <= 50;
             });
 
-            // 正答率が低い順にソート（未回答は0%として扱う）
             const sorted = filtered.sort((a, b) => {
                 const rateA = a.totalCount > 0 ? (a.correctCount / a.totalCount) * 100 : 0;
                 const rateB = b.totalCount > 0 ? (b.correctCount / b.totalCount) * 100 : 0;
                 return rateA - rateB;
             });
 
-            // タイトルに選択した回を表示
             const roundLabel = selectedRounds.sort((a,b)=>a-b).map(r => `第${r}回`).join('・');
             document.getElementById('listTitle').textContent = `📊 弱点確認（${roundLabel}）`;
 
@@ -889,4 +973,3 @@ font-weight: 600;
     </script>
 </body>
 </html>
-
