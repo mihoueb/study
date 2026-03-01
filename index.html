@@ -732,7 +732,7 @@ font-weight: 600;
             startRoundAllQuiz(selectedRounds);
         }
 
-        // 指定回を全部出題
+        // 指定回を全部出題（常にランダム・最大40問）
         function startRoundAllQuiz(selectedRounds) {
             const filtered = allQuestions.filter(q => selectedRounds.includes(Number(q.round)));
 
@@ -745,7 +745,8 @@ font-weight: 600;
             sessionIncorrect = 0;
             updateQueue = [];
 
-currentQuestions = shuffleArray(filtered).slice(0, 40);
+            // 常にシャッフルして最大40問に絞る
+            currentQuestions = shuffleArray(filtered).slice(0, 40);
 
             currentIndex = 0;
             document.getElementById('menu').style.display = 'none';
@@ -968,4 +969,3 @@ currentQuestions = shuffleArray(filtered).slice(0, 40);
     </script>
 </body>
 </html>
-
