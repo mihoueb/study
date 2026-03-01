@@ -745,12 +745,7 @@ font-weight: 600;
             sessionIncorrect = 0;
             updateQueue = [];
 
-            currentQuestions = [...filtered];
-
-            const orderMode = document.getElementById('orderMode').value;
-            if (orderMode === 'random') {
-                currentQuestions = shuffleArray(currentQuestions);
-            }
+currentQuestions = shuffleArray(filtered).slice(0, 40);
 
             currentIndex = 0;
             document.getElementById('menu').style.display = 'none';
@@ -973,3 +968,4 @@ font-weight: 600;
     </script>
 </body>
 </html>
+
