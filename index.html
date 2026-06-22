@@ -2,7 +2,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <link rel="icon" href="favicon.png" type="image/png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>漢字カード</title>
@@ -508,6 +507,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
       <button class="ans-btn btn-ok" onclick="answerQuestion(true)">✅ 書けた！</button>
       <button class="ans-btn btn-ng" onclick="answerQuestion(false)">❌ 書けなかった</button>
     </div>
+    <button onclick="quitToMenu()" style="width:100%;padding:11px;margin-top:2px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text2);font-family:'Klee One',cursive;font-size:0.9em;cursor:pointer;transition:all 0.2s">⏸ 中断してメニューへ（ここまで保存）</button>
   </div>
 
   <!-- リザルト -->
@@ -766,7 +766,7 @@ function parseRounds(input) {
 // ===== クイズ開始 =====
 function startQuiz(mode, questions) {
   if (!questions && allQuestions.length === 0) { alert('先にURLを設定してください'); return; }
-  isRetryMode = !!questions;
+  isRetryMode = (mode === 'retry');
   streak = 0; missedInSession = []; sessionCorrect = 0; sessionIncorrect = 0; updateQueue = [];
   let qs = questions || [...allQuestions];
   if (!questions) {
@@ -894,18 +894,45 @@ function launchConfetti(n) {
 }
 
 // ===== 保存 =====
-async function saveToSheet() {
-  if (updateQueue.length > 0) {
-    document.getElementById('savingIndicator').style.display = 'block';
-    try {
-      await fetch(sheetUrl, {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(updateQueue), mode:'no-cors'});
-      setTimeout(()=>{ document.getElementById('savingIndicator').style.display='none'; showResult(); }, 1000);
-    } catch(e) {
-      document.getElementById('savingIndicator').style.display='none'; showResult();
-    }
-  } else { showResult(); }
+// updateQueueをスプシへ送信し、送信したものはqueueから消す（共通処理）
+async function flushUpdates() {
+  if (updateQueue.length === 0) return;
+  const payload = updateQueue;
+  updateQueue = [];                       // 二重送信を防ぐため先にクリア
+  document.getElementById('savingIndicator').style.display = 'block';
+  try {
+    await fetch(sheetUrl, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload), mode:'no-cors'});
+  } catch(e) { console.error('保存エラー:', e); }
+  await new Promise(r => setTimeout(r, 1000)); // no-corsでも実際に送信されるよう少し待つ
+  document.getElementById('savingIndicator').style.display = 'none';
 }
+
+// 通常完了時：保存してから結果画面へ
+async function saveToSheet() {
+  await flushUpdates();
+  showResult();
+}
+
+// 途中で中断：ここまでの分を保存してメニューへ
+async function quitToMenu() {
+  if (!confirm('クイズを中断します。ここまでの記録は保存されます。よろしいですか？')) return;
+  if (!isRetryMode) await flushUpdates();   // 再挑戦モードは保存しない（従来通り）
+  backToMenu();
+}
+
+// タブを閉じる/リロード/別タブに移った時の保険（sendBeaconで確実に送る）
+function flushBeacon() {
+  if (updateQueue.length === 0 || isRetryMode) return;
+  try {
+    const blob = new Blob([JSON.stringify(updateQueue)], {type:'text/plain;charset=UTF-8'});
+    if (navigator.sendBeacon(sheetUrl, blob)) updateQueue = [];
+  } catch(e) {}
+}
+window.addEventListener('pagehide', flushBeacon);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushBeacon();
+});
 
 // ===== リザルト =====
 function showResult() {
