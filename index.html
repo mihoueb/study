@@ -398,6 +398,44 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
   .answer-text   { font-size:3em; }
   .game-title    { font-size:1.2em; }
 }
+
+/* ===== 印刷用（弱点確認ページ専用） ===== */
+@media print {
+  @page { size: A4 portrait; margin: 7mm; }
+  /* 装飾・他画面・ヘッダー類を全部消す */
+  #bg-canvas, .saving-indicator, .flash-overlay, .confetti-piece,
+  .game-header, .status-bar, .weekly-bar, .menu-panel,
+  .card-screen, .result-screen, .modal-overlay,
+  .weak-screen .back-btn, #weakHeading { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+
+  /* 一覧を多段組みで詰める（段数はJSが件数に応じて調整） */
+  #weakList {
+    column-count: var(--print-cols, 2);
+    column-gap: 5mm;
+  }
+  .weak-item {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+    background: #fff !important; border: 0 !important;
+    border-bottom: 1px solid #ccc !important; border-radius: 0 !important;
+    padding: 1mm 1.5mm !important; margin: 0 !important; gap: 0 2mm !important;
+    display: grid !important;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "num ans rate" "num q q";
+    align-items: center;
+  }
+  .weak-num  { grid-area: num; min-width: 0 !important; color: #888 !important;
+               font-size: 8pt !important; }
+  .weak-a    { grid-area: ans; min-width: 0 !important; text-align: left !important;
+               color: #FF9999 !important; font-weight: 700 !important;
+               -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+               font-size: var(--print-kanji, 22pt) !important; line-height: 1.05 !important; }
+  .weak-rate { grid-area: rate; min-width: 0 !important; text-align: right;
+               color: #000 !important; font-size: 8pt !important; }
+  .weak-q    { grid-area: q; color: #333 !important;
+               font-size: var(--print-q, 9pt) !important; line-height: 1.15 !important; }
+}
 </style>
 </head>
 <body>
@@ -541,7 +579,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
   <!-- 弱点確認 -->
   <div class="weak-screen" id="weakScreen">
     <button class="back-btn" style="margin-bottom:14px" onclick="backToMenu()">◀ メニューに戻る</button>
-    <div style="font-family:'Orbitron',sans-serif;font-size:0.7em;color:var(--red);letter-spacing:3px;text-align:center;margin-bottom:14px">▼ WEAK POINT ANALYSIS ▼</div>
+    <div id="weakHeading" style="font-family:'Orbitron',sans-serif;font-size:0.7em;color:var(--red);letter-spacing:3px;text-align:center;margin-bottom:14px">▼ WEAK POINT ANALYSIS ▼</div>
     <div id="weakList"></div>
   </div>
 </div>
@@ -1030,6 +1068,23 @@ function showListView(rounds) {
 
 function show(id){ const el=document.getElementById(id); if(el) el.style.display='block'; }
 function hide(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
+
+// ===== 印刷時の自動フィット（件数に応じて段数と漢字サイズを調整して1枚に収める） =====
+function adjustPrintLayout() {
+  const n = document.querySelectorAll('#weakList .weak-item').length;
+  let cols, kanji, q;
+  if      (n <= 14) { cols=1; kanji='32pt'; q='12pt'; }
+  else if (n <= 24) { cols=2; kanji='26pt'; q='10pt'; }
+  else if (n <= 40) { cols=2; kanji='20pt'; q='9pt';  }
+  else if (n <= 60) { cols=3; kanji='16pt'; q='8pt';  }
+  else if (n <= 90) { cols=3; kanji='13pt'; q='7.5pt';}
+  else              { cols=4; kanji='11pt'; q='7pt';  }
+  const s = document.documentElement.style;
+  s.setProperty('--print-cols', cols);
+  s.setProperty('--print-kanji', kanji);
+  s.setProperty('--print-q', q);
+}
+window.addEventListener('beforeprint', adjustPrintLayout);
 </script>
 </body>
 </html>
