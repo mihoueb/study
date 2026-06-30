@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -399,6 +400,24 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
   .game-title    { font-size:1.2em; }
 }
 
+/* ===== ボス戦モード ===== */
+.btn-boss { background:linear-gradient(135deg,#2a001a,#5a0030); border:1px solid #ff2266; }
+#bossPanel { position:relative; margin-bottom:12px; background:var(--bg3); border:1px solid #ff2266; border-radius:14px; padding:12px 14px; box-shadow:0 0 20px #ff226633; }
+.boss-stage { display:flex; align-items:center; gap:14px; }
+.boss-emoji { font-size:3em; line-height:1; filter:drop-shadow(0 0 10px #ff226688); animation:bossFloat 2s ease-in-out infinite; }
+@keyframes bossFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.boss-emoji.hit { animation:bossHit 0.45s; }
+@keyframes bossHit { 0%{transform:translateX(0)} 20%{transform:translateX(-9px) scale(1.12)} 40%{transform:translateX(9px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(4px)} 100%{transform:translateX(0)} }
+.boss-info { flex:1; min-width:0; }
+.boss-name { font-family:'Orbitron',sans-serif; font-size:0.85em; color:#ff6688; letter-spacing:1px; margin-bottom:5px; }
+.boss-hp-outer { height:14px; background:#1a0a14; border:1px solid #ff2266; border-radius:7px; overflow:hidden; }
+.boss-hp-inner { height:100%; width:100%; background:linear-gradient(90deg,#ff2266,#ff8c00); border-radius:7px; transition:width 0.5s cubic-bezier(.34,1.56,.64,1); box-shadow:0 0 8px #ff226688; }
+.boss-hp-text { font-family:'Orbitron',sans-serif; font-size:0.7em; color:var(--text2); text-align:right; margin-top:3px; }
+.player-hearts { text-align:center; font-size:1.25em; margin-top:10px; letter-spacing:4px; }
+.dmg-float { position:absolute; left:30px; top:6px; font-family:'Orbitron',sans-serif; font-weight:900; font-size:1.7em; color:#ffd700; text-shadow:0 0 10px #ff8c00; pointer-events:none; z-index:50; animation:dmgFloat 0.9s ease-out forwards; }
+.dmg-float.crit { color:#ff4466; font-size:2.2em; }
+@keyframes dmgFloat { 0%{opacity:0;transform:translateY(0) scale(0.5)} 30%{opacity:1;transform:translateY(-18px) scale(1.2)} 100%{opacity:0;transform:translateY(-58px) scale(1)} }
+
 /* ===== 印刷用（弱点確認ページ専用） ===== */
 @media print {
   @page { size: A4 portrait; margin: 7mm; }
@@ -506,6 +525,10 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
         <span class="btn-icon">📊</span>弱点確認
         <span class="btn-tag">WEAK</span>
       </button>
+      <button class="mode-btn btn-boss"    onclick="showBossRoundModal()">
+        <span class="btn-icon">👹</span>ボス戦（回を指定）
+        <span class="btn-tag">BOSS</span>
+      </button>
     </div>
     <div class="order-row">
       <label>📋 出題順序</label>
@@ -523,6 +546,17 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
 
   <!-- カード画面 -->
   <div class="card-screen" id="cardScreen">
+    <div id="bossPanel" style="display:none">
+      <div class="boss-stage">
+        <div class="boss-emoji" id="bossEmoji">👹</div>
+        <div class="boss-info">
+          <div class="boss-name" id="bossName">ボス</div>
+          <div class="boss-hp-outer"><div class="boss-hp-inner" id="bossHpBar"></div></div>
+          <div class="boss-hp-text" id="bossHpText">HP 0 / 0</div>
+        </div>
+      </div>
+      <div class="player-hearts" id="playerHearts"></div>
+    </div>
     <div class="combo-area" id="comboArea"></div>
     <div class="card-info-row">
       <span class="card-progress" id="cardProgress">1 / 20</span>
@@ -582,6 +616,18 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
     <div id="weakHeading" style="font-family:'Orbitron',sans-serif;font-size:0.7em;color:var(--red);letter-spacing:3px;text-align:center;margin-bottom:14px">▼ WEAK POINT ANALYSIS ▼</div>
     <div id="weakList"></div>
   </div>
+
+  <!-- ボス戦リザルト -->
+  <div class="result-screen" id="bossResultScreen" style="display:none">
+    <div class="result-title" id="bossResultTitle">BOSS BATTLE</div>
+    <div id="bossResultEmoji" style="font-size:4em;line-height:1;margin:4px 0 10px"></div>
+    <div class="exp-gained" id="bossExpGained">+0 EXP</div>
+    <div class="levelup-banner" id="bossLevelupBanner">⬆ LEVEL UP!!</div>
+    <div class="result-msg" id="bossResultMsg"></div>
+    <div class="result-stats" id="bossResultStats"></div>
+    <button class="retry-miss-btn" id="bossRetryBtn" onclick="startBossBattle()">⚔ もう一度ボスに挑む！</button>
+    <button class="back-btn" onclick="backToMenu()">◀ メニューに戻る</button>
+  </div>
 </div>
 
 <!-- モーダル -->
@@ -604,6 +650,17 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeRoundAllModal()">キャンセル</button>
       <button class="modal-ok" onclick="confirmRoundAllSelection()">出題する</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="bossRoundModal" style="display:none">
+  <div class="modal-box">
+    <h3>👹 BOSS BATTLE</h3>
+    <p>ボス戦に出す回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3</span></p>
+    <input type="text" id="bossRoundInput" placeholder="例: 1,2,3" inputmode="numeric">
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeBossRoundModal()">キャンセル</button>
+      <button class="modal-ok" onclick="confirmBossRoundSelection()">ボス戦スタート</button>
     </div>
   </div>
 </div>
@@ -779,10 +836,14 @@ function showRoundModal()   { document.getElementById('roundInput').value=''; do
 function closeRoundModal()  { document.getElementById('roundModal').style.display='none'; }
 function showRoundAllModal(){ document.getElementById('roundAllInput').value=''; document.getElementById('roundAllModal').style.display='flex'; setTimeout(()=>document.getElementById('roundAllInput').focus(),100); }
 function closeRoundAllModal(){ document.getElementById('roundAllModal').style.display='none'; }
+function showBossRoundModal(){ document.getElementById('bossRoundInput').value=''; document.getElementById('bossRoundModal').style.display='flex'; setTimeout(()=>document.getElementById('bossRoundInput').focus(),100); }
+function closeBossRoundModal(){ document.getElementById('bossRoundModal').style.display='none'; }
+function confirmBossRoundSelection(){ const rounds = parseRounds(document.getElementById('bossRoundInput').value); if (!rounds) return; closeBossRoundModal(); startBossBattle(rounds); }
 document.addEventListener('keydown', e => {
   if (e.key==='Enter') {
-    if (document.getElementById('roundModal').style.display==='flex')    confirmRoundSelection();
-    if (document.getElementById('roundAllModal').style.display==='flex') confirmRoundAllSelection();
+    if (document.getElementById('roundModal').style.display==='flex')     confirmRoundSelection();
+    if (document.getElementById('roundAllModal').style.display==='flex')  confirmRoundAllSelection();
+    if (document.getElementById('bossRoundModal').style.display==='flex') confirmBossRoundSelection();
   }
 });
 function confirmRoundSelection() {
@@ -805,6 +866,8 @@ function parseRounds(input) {
 function startQuiz(mode, questions) {
   if (!questions && allQuestions.length === 0) { alert('先にURLを設定してください'); return; }
   isRetryMode = (mode === 'retry');
+  isBossMode = false;
+  document.getElementById('bossPanel').style.display = 'none';
   streak = 0; missedInSession = []; sessionCorrect = 0; sessionIncorrect = 0; updateQueue = [];
   let qs = questions || [...allQuestions];
   if (!questions) {
@@ -837,7 +900,10 @@ function shuffleArray(arr) {
 
 // ===== 問題表示 =====
 function showQuestion() {
-  if (currentIndex >= currentQuestions.length) { isRetryMode ? showResult() : saveToSheet(); return; }
+  if (currentIndex >= currentQuestions.length) {
+    if (isBossMode) { currentQuestions = shuffleArray(currentQuestions); currentIndex = 0; }
+    else { isRetryMode ? showResult() : saveToSheet(); return; }
+  }
   const q = currentQuestions[currentIndex];
   const highlighted = q.question.replace(/【([^】]+)】/g,'<span class="highlight">【$1】</span>');
   const rate = q.totalCount > 0 ? Math.round(q.correctCount/q.totalCount*100) : 0;
@@ -861,6 +927,8 @@ function showQuestion() {
     rb.style.display='block';
     document.getElementById('retryWord').textContent = q.answer;
   } else { rb.style.display='none'; }
+
+  if (isBossMode) updateBossUI();
 }
 
 function flipCard() {
@@ -884,25 +952,38 @@ function answerQuestion(correct) {
   if (correct) {
     streak++; sessionCorrect++;
     q.totalCount = (q.totalCount||0)+1; q.correctCount = (q.correctCount||0)+1;
-    // フラッシュ
-    if      (streak >= 10) showFlash('🔥 ' + streak + ' COMBO!!', 'ok');
-    else if (streak >= 5)  showFlash('⚡ PERFECT!!', 'ok');
-    else if (streak >= 3)  showFlash('✅ ' + streak + ' COMBO!', 'ok');
-    else                   showFlash('✅ CORRECT!', 'ok');
-    if (streak >= 3) launchConfetti(streak >= 7 ? 25 : 12);
+    if (isBossMode) {
+      dealBossDamage();
+    } else {
+      // フラッシュ
+      if      (streak >= 10) showFlash('🔥 ' + streak + ' COMBO!!', 'ok');
+      else if (streak >= 5)  showFlash('⚡ PERFECT!!', 'ok');
+      else if (streak >= 3)  showFlash('✅ ' + streak + ' COMBO!', 'ok');
+      else                   showFlash('✅ CORRECT!', 'ok');
+      if (streak >= 3) launchConfetti(streak >= 7 ? 25 : 12);
+    }
   } else {
     streak = 0; sessionIncorrect++;
     q.totalCount = (q.totalCount||0)+1;
-    const msgs = ['❌ MISS!', '💀 FAILED!', '⚠ RETRY!'];
-    showFlash(msgs[Math.floor(Math.random()*msgs.length)], 'ng');
     if (!missedInSession.find(m=>m.rowIndex===q.rowIndex)) {
       missedInSession.push({...q, _retry:true});
+    }
+    if (isBossMode) {
+      bossAttackPlayer();
+    } else {
+      const msgs = ['❌ MISS!', '💀 FAILED!', '⚠ RETRY!'];
+      showFlash(msgs[Math.floor(Math.random()*msgs.length)], 'ng');
     }
   }
 
   updateQueue.push({ rowIndex:q.rowIndex, correctCount:q.correctCount, totalCount:q.totalCount });
+
+  if (isBossMode) {
+    if (bossHP <= 0)       { setTimeout(()=>bossEnd(true),  800); return; }
+    if (playerHearts <= 0) { setTimeout(()=>bossEnd(false), 800); return; }
+  }
   currentIndex++;
-  setTimeout(showQuestion, correct ? 550 : 400);
+  setTimeout(showQuestion, correct ? (isBossMode ? 650 : 550) : 450);
 }
 
 // ===== 演出 =====
@@ -1037,7 +1118,9 @@ function showResult() {
 }
 
 function backToMenu() {
-  hide('resultScreen'); hide('weakScreen'); hide('cardScreen');
+  hide('resultScreen'); hide('weakScreen'); hide('cardScreen'); hide('bossResultScreen');
+  document.getElementById('bossPanel').style.display = 'none';
+  isBossMode = false;
   show('menu'); show('weeklyBar');
   updateStatusBar(); renderWeeklyBar();
   loadQuestions();
@@ -1069,6 +1152,129 @@ function showListView(rounds) {
 function show(id){ const el=document.getElementById(id); if(el) el.style.display='block'; }
 function hide(id){ const el=document.getElementById(id); if(el) el.style.display='none'; }
 
+// ===== ボス戦モード =====
+let isBossMode = false, bossHP = 0, bossMaxHP = 0, playerHearts = 0, currentBoss = null;
+const MAX_HEARTS = 5;
+const BOSSES = [
+  { name:'スライム', emoji:'🟢', hp:100 },
+  { name:'ガイコツ', emoji:'💀', hp:140 },
+  { name:'ゴーレム', emoji:'🗿', hp:180 },
+  { name:'まじょ',   emoji:'🧙', hp:160 },
+  { name:'ドラゴン', emoji:'🐉', hp:230 },
+  { name:'まおう',   emoji:'👹', hp:300 },
+];
+
+let bossRounds = null;   // 直近に選んだ回（再挑戦で使い回す）
+function startBossBattle(rounds) {
+  if (allQuestions.length === 0) { alert('先にURLを設定してください'); return; }
+  if (rounds !== undefined) bossRounds = rounds;   // 新規選択時のみ更新
+  let pool = allQuestions;
+  if (bossRounds && bossRounds.length) {
+    pool = allQuestions.filter(q => bossRounds.includes(Number(q.round)));
+  }
+  if (pool.length === 0) { alert('指定した回の問題が見つかりません'); return; }
+  currentBoss = BOSSES[Math.floor(Math.random()*BOSSES.length)];
+  const lv = getCurrentLevel(getRPGState().exp).lv;
+  bossMaxHP = currentBoss.hp + (lv - 1) * 10;   // レベルが高いほど強い
+  bossHP = bossMaxHP;
+  playerHearts = MAX_HEARTS;
+  isBossMode = true; isRetryMode = false;
+  streak = 0; missedInSession = []; sessionCorrect = 0; sessionIncorrect = 0; updateQueue = [];
+  currentQuestions = shuffleArray([...pool]); currentIndex = 0; isFlipped = false;
+  hide('menu'); hide('weeklyBar'); hide('bossResultScreen'); hide('resultScreen');
+  show('cardScreen');
+  document.getElementById('bossPanel').style.display = 'block';
+  document.getElementById('bossEmoji').textContent = currentBoss.emoji;
+  document.getElementById('bossName').textContent = currentBoss.name + ' があらわれた！';
+  updateBossUI();
+  showQuestion();
+}
+
+function updateBossUI() {
+  const pct = bossMaxHP > 0 ? Math.max(0, bossHP / bossMaxHP * 100) : 0;
+  document.getElementById('bossHpBar').style.width = pct + '%';
+  document.getElementById('bossHpText').textContent = `HP ${bossHP} / ${bossMaxHP}`;
+  let h = '';
+  for (let i = 0; i < MAX_HEARTS; i++) h += i < playerHearts ? '❤️' : '🤍';
+  document.getElementById('playerHearts').textContent = h;
+}
+
+function dealBossDamage() {
+  let dmg = 22 + Math.floor(Math.random()*8);   // 22〜29
+  if (streak >= 3) dmg += 12;
+  if (streak >= 6) dmg += 16;
+  const crit = Math.random() < 0.18;
+  if (crit) dmg = dmg * 2;
+  bossHP = Math.max(0, bossHP - dmg);
+  updateBossUI();
+  const be = document.getElementById('bossEmoji');
+  be.classList.remove('hit'); void be.offsetWidth; be.classList.add('hit');
+  showDamageFloat(dmg, crit);
+  if (crit)              showFlash('⚡ CRITICAL!! -' + dmg, 'ok');
+  else if (streak >= 3)  showFlash('🔥 ' + streak + ' COMBO! -' + dmg, 'ok');
+  if (streak >= 3) launchConfetti(streak >= 7 ? 18 : 10);
+}
+
+function showDamageFloat(dmg, crit) {
+  const panel = document.getElementById('bossPanel');
+  const el = document.createElement('div');
+  el.className = 'dmg-float' + (crit ? ' crit' : '');
+  el.textContent = '-' + dmg;
+  el.style.left = (24 + Math.random()*26) + 'px';
+  panel.appendChild(el);
+  setTimeout(()=>el.remove(), 900);
+}
+
+function bossAttackPlayer() {
+  playerHearts = Math.max(0, playerHearts - 1);
+  updateBossUI();
+  showFlash('💥 ' + (currentBoss ? currentBoss.name : 'ボス') + 'のこうげき！ -1❤️', 'ng');
+}
+
+async function bossEnd(win) {
+  const total = sessionCorrect + sessionIncorrect;
+  if (total > 0) saveWeekScore(sessionCorrect, total);
+  const bonus = win ? (120 + playerHearts * 20) : 0;
+  const expGain = sessionCorrect * 10 + bonus;
+  const info = grantExp(expGain);
+  document.getElementById('bossPanel').style.display = 'none';
+  showBossResult(win, expGain, info);
+  if (win) { launchConfetti(45); showFlash('🏆 BOSS DEFEATED!!', 'lvl'); }
+  await flushUpdates();   // 正答率を裏でスプシ保存
+}
+
+// EXP加算＋レベルアップ判定（リザルト共通）
+function grantExp(amount) {
+  const rpg = getRPGState();
+  const oldLv = getCurrentLevel(rpg.exp);
+  rpg.exp = rpg.exp + amount;
+  rpg.totalScore = (rpg.totalScore || 0) + sessionCorrect * 10;
+  const newLv = getCurrentLevel(rpg.exp);
+  saveRPG(rpg);
+  updateStatusBar();
+  return { leveled: newLv.lv > oldLv.lv, oldLv, newLv };
+}
+
+function showBossResult(win, expGain, info) {
+  hide('cardScreen');
+  show('bossResultScreen');
+  document.getElementById('bossResultTitle').textContent = win ? '🏆 BOSS DEFEATED!!' : '💀 GAME OVER...';
+  document.getElementById('bossResultEmoji').textContent = currentBoss ? currentBoss.emoji : '👹';
+  document.getElementById('bossExpGained').textContent = `+${expGain} EXP GAINED`;
+  document.getElementById('bossResultMsg').textContent = win
+    ? `${currentBoss.name}をたおした！さすが勇者！🎉`
+    : `${currentBoss.name}にやられた…でも正解ぶんのEXPはGET！またちょうせんしよう💪`;
+  const bossPct = bossMaxHP > 0 ? Math.max(0, Math.round(bossHP / bossMaxHP * 100)) : 0;
+  document.getElementById('bossResultStats').innerHTML =
+    `正解：${sessionCorrect}問 ／ ミス：${sessionIncorrect}問<br>` +
+    (win ? `のこりライフ ❤️ × ${playerHearts}` : `ボスのこりHP ${bossPct}%`);
+  const lb = document.getElementById('bossLevelupBanner');
+  if (info && info.leveled) {
+    lb.style.display = 'block';
+    lb.textContent = `⬆ LEVEL UP!! Lv.${info.oldLv.lv} → Lv.${info.newLv.lv} 「${info.newLv.title}」`;
+  } else { lb.style.display = 'none'; }
+}
+
 // ===== 印刷時の自動フィット（件数に応じて段数と漢字サイズを調整して1枚に収める） =====
 function adjustPrintLayout() {
   const n = document.querySelectorAll('#weakList .weak-item').length;
@@ -1088,3 +1294,4 @@ window.addEventListener('beforeprint', adjustPrintLayout);
 </script>
 </body>
 </html>
+
