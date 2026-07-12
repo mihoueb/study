@@ -418,6 +418,9 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
 .dmg-float.crit { color:#ff4466; font-size:2.2em; }
 @keyframes dmgFloat { 0%{opacity:0;transform:translateY(0) scale(0.5)} 30%{opacity:1;transform:translateY(-18px) scale(1.2)} 100%{opacity:0;transform:translateY(-58px) scale(1)} }
 
+/* 書き取り用リスト（2枚目）は画面には出さない */
+#weakListWrite { display: none; }
+
 /* ===== 印刷用（弱点確認ページ専用） ===== */
 @media print {
   @page { size: A4 portrait; margin: 7mm; }
@@ -430,10 +433,13 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
   .page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 
   /* 一覧を多段組みで詰める（段数はJSが件数に応じて調整） */
-  #weakList {
+  #weakList, #weakListWrite {
     column-count: var(--print-cols, 2);
     column-gap: 5mm;
   }
+  /* 2枚目＝書き取り用紙（漢字を白にして見えなくする） */
+  #weakListWrite { display: block !important; break-before: page; page-break-before: always; }
+  #weakListWrite .weak-a { color: #FFFFFF !important; }
   .weak-item {
     break-inside: avoid; -webkit-column-break-inside: avoid;
     background: #fff !important; border: 0 !important;
@@ -615,6 +621,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
     <button class="back-btn" style="margin-bottom:14px" onclick="backToMenu()">◀ メニューに戻る</button>
     <div id="weakHeading" style="font-family:'Orbitron',sans-serif;font-size:0.7em;color:var(--red);letter-spacing:3px;text-align:center;margin-bottom:14px">▼ WEAK POINT ANALYSIS ▼</div>
     <div id="weakList"></div>
+    <div id="weakListWrite"></div>
   </div>
 
   <!-- ボス戦リザルト -->
@@ -634,7 +641,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
 <div class="modal-overlay" id="roundModal" style="display:none">
   <div class="modal-box">
     <h3>📊 WEAK POINT</h3>
-    <p>表示したい回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3</span></p>
+    <p>表示したい回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3 ／ 連続は 1-5</span></p>
     <input type="text" id="roundInput" placeholder="例: 1,2,3" inputmode="numeric">
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeRoundModal()">キャンセル</button>
@@ -645,7 +652,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
 <div class="modal-overlay" id="roundAllModal" style="display:none">
   <div class="modal-box">
     <h3>📚 ALL ROUNDS</h3>
-    <p>出題したい回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3</span></p>
+    <p>出題したい回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3 ／ 連続は 1-5</span></p>
     <input type="text" id="roundAllInput" placeholder="例: 1,2,3" inputmode="numeric">
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeRoundAllModal()">キャンセル</button>
@@ -656,7 +663,7 @@ html,body { min-height:100dvh; background:var(--bg); color:var(--text); font-fam
 <div class="modal-overlay" id="bossRoundModal" style="display:none">
   <div class="modal-box">
     <h3>👹 BOSS BATTLE</h3>
-    <p>ボス戦に出す回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3</span></p>
+    <p>ボス戦に出す回をカンマ区切りで入力<br><span style="color:#00d4ff">例：1,2,3 ／ 連続は 1-5</span></p>
     <input type="text" id="bossRoundInput" placeholder="例: 1,2,3" inputmode="numeric">
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeBossRoundModal()">キャンセル</button>
@@ -857,9 +864,22 @@ function confirmRoundAllSelection() {
   closeRoundAllModal(); startRoundAllQuiz(rounds);
 }
 function parseRounds(input) {
-  const parts = (input||'').trim().split(/[,，、]/).map(s=>parseInt(s.trim(),10)).filter(n=>!isNaN(n));
-  if (parts.length===0) { alert('正しい数字を入力してください'); return null; }
-  return parts;
+  const parts = [];
+  (input||'').trim().split(/[,，、]/).forEach(s => {
+    s = s.trim();
+    const m = s.match(/^(\d+)\s*[-−ー～〜]\s*(\d+)$/);   // 範囲指定「1-5」（全角もOK）
+    if (m) {
+      let a = parseInt(m[1],10), b = parseInt(m[2],10);
+      if (a > b) [a,b] = [b,a];
+      for (let i = a; i <= b; i++) parts.push(i);
+    } else {
+      const n = parseInt(s,10);
+      if (!isNaN(n)) parts.push(n);
+    }
+  });
+  const uniq = [...new Set(parts)];
+  if (uniq.length===0) { alert('正しい数字を入力してください'); return null; }
+  return uniq;
 }
 
 // ===== クイズ開始 =====
@@ -1132,8 +1152,10 @@ function showListView(rounds) {
   const filtered = roundFiltered.filter(q=>{ const r=q.totalCount>0?(q.correctCount/q.totalCount)*100:0; return r<=50; });
   const sorted   = filtered.sort((a,b)=>{ const ra=a.totalCount>0?(a.correctCount/a.totalCount)*100:0,rb=b.totalCount>0?(b.correctCount/b.totalCount)*100:0; return ra-rb; });
   const list = document.getElementById('weakList');
+  const writeList = document.getElementById('weakListWrite');
   if (sorted.length===0) {
     list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--green);font-family:Orbitron,sans-serif;font-size:0.8em">NO WEAK POINTS DETECTED ✓</div>';
+    writeList.innerHTML = '';
   } else {
     list.innerHTML = sorted.map((q,i)=>{
       const r = q.totalCount>0?Math.round(q.correctCount/q.totalCount*100):0;
@@ -1145,6 +1167,7 @@ function showListView(rounds) {
         <span class="weak-rate" style="color:${color}">${q.totalCount>0?r+'%':'未回答'}</span>
       </div>`;
     }).join('');
+    writeList.innerHTML = list.innerHTML;   // 印刷2枚目（書き取り用）：CSSで漢字を白にする
   }
   hide('menu'); hide('weeklyBar'); show('weakScreen');
 }
@@ -1156,12 +1179,12 @@ function hide(id){ const el=document.getElementById(id); if(el) el.style.display
 let isBossMode = false, bossHP = 0, bossMaxHP = 0, playerHearts = 0, currentBoss = null;
 const MAX_HEARTS = 5;
 const BOSSES = [
-  { name:'スライム', emoji:'🟢', hp:100 },
-  { name:'ガイコツ', emoji:'💀', hp:140 },
-  { name:'ゴーレム', emoji:'🗿', hp:180 },
-  { name:'まじょ',   emoji:'🧙', hp:160 },
-  { name:'ドラゴン', emoji:'🐉', hp:230 },
-  { name:'まおう',   emoji:'👹', hp:300 },
+  { name:'スライム', emoji:'🟢', hp:200 },
+  { name:'ガイコツ', emoji:'💀', hp:280 },
+  { name:'ゴーレム', emoji:'🗿', hp:360 },
+  { name:'まじょ',   emoji:'🧙', hp:320 },
+  { name:'ドラゴン', emoji:'🐉', hp:460 },
+  { name:'まおう',   emoji:'👹', hp:600 },
 ];
 
 let bossRounds = null;   // 直近に選んだ回（再挑戦で使い回す）
